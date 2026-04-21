@@ -73,7 +73,7 @@ docker run -d \
 | IMMICH_API_URL | ✅ | Full URL to your Immich API endpoint (can be local or public) (e.g., `http://your-immich-instance:2283/api`) | - |
 | IMMICH_API_KEY | ✅ | API key for authenticating with your Immich instance | - |
 | ALLOWED_USER_IDS | ✅ | Comma-separated list of Telegram user IDs allowed to use the bot (e.g., `123456789,987654321`) | - |
-| IMMICH_ALBUMS | ❎ | Comma-separated list of Immich album UUIDs (e.g. `acde070d-8c4c-4f0d-9d8a-162843c10333, 8be4df61-93ca-11d2-aa0d-00e098032b8c`)| - |
+| IMMICH_ALBUMS | ❌ | Comma-separated list of Immich album UUIDs (e.g. `acde070d-8c4c-4f0d-9d8a-162843c10333, 8be4df61-93ca-11d2-aa0d-00e098032b8c`)| - |
 
 ## Immich API Key Permissions Needed
 - asset.upload
