@@ -74,6 +74,12 @@ docker run -d \
 | IMMICH_API_KEY | ✅ | API key for authenticating with your Immich instance | - |
 | ALLOWED_USER_IDS | ✅ | Comma-separated list of Telegram user IDs allowed to use the bot (e.g., `123456789,987654321`) | - |
 
+## Immich API Key Permissions Needed
+- asset.upload
+- albumAsset.create
+- server.about
+- user.read
+
 ## Planned features
 
 - [ ] Upload videos
