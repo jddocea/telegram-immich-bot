@@ -380,7 +380,7 @@ async def upload_to_immich(headers, files, data, file_name, update: Update):
             await update.message.reply_text(f"✅ Photo uploaded successfully!")
                     
             if added_to_album:
-                await update.message.reply_text(f"Photo added to albums!")
+                await update.message.reply_text(f"✅ Photo added to albums!")
     else:
         logger.error(f"Failed to upload photo {file_name} to Immich. Status code: {response.status_code}, Response: {response.text}")
         await update.message.reply_text(f"❌ Failed to upload photo. Error: {response.text}")
