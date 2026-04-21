@@ -42,12 +42,17 @@ def validate_config():
 IMMICH_API_URL = os.getenv("IMMICH_API_URL", "http://your-immich-instance.ltd/api")
 IMMICH_API_KEY = os.getenv("IMMICH_API_KEY")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+albums_entered = os.getenv("IMMICH_ALBUMS")
 
 allowed_user_ids = os.getenv("ALLOWED_USER_IDS")
 if not allowed_user_ids:
     raise ValueError("ALLOWED_USER_IDS environment variable is required")
 
 ALLOWED_USER_IDS = [int(user_id.strip()) for user_id in allowed_user_ids.split(",") if user_id.strip()]
+if not albums_entered:
+    IMMICH_ALBUMS = []
+else:
+    IMMICH_ALBUMS = [str(album.strip()) for album in albums_entered.split(",") if album.strip()]
 validate_config()
 
 SUPPORTED_IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.heic', '.heif', '.webp')
@@ -289,8 +294,14 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         logger.info(f"File {file_name} is a duplicate in Immich")
                         await update.message.reply_text(f"ℹ️ File {file_name} already exists in Immich.")
                     else:
+                        if len(IMMICH_ALBUMS) > 0:
+                            added_to_album = await add_to_album(checksum, response_data.get('id'))
+                        else:
+                            added_to_album = False
                         logger.info(f"Successfully uploaded file {file_name} to Immich")
                         await update.message.reply_text(f"✅ File {file_name} uploaded successfully!")
+                        if added_to_album:
+                            await update.message.reply_text(f"Photo added to albums!")
                 else:
                     logger.error(f"Failed to upload file {file_name} to Immich. Status code: {response.status_code}, Response: {response.text}")
                     await update.message.reply_text(f"❌ Failed to upload file. Error: {response.text}")
@@ -373,8 +384,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     logger.info(f"Photo {file_name} is a duplicate in Immich")
                     await update.message.reply_text(f"ℹ️ Photo already exists in Immich.")
                 else:
+                    if len(IMMICH_ALBUMS) > 0:
+                        added_to_album = await add_to_album(checksum, response_data.get('id'))
+                    else:
+                        added_to_album = False
                     logger.info(f"Successfully uploaded photo {file_name} to Immich")
                     await update.message.reply_text(f"✅ Photo uploaded successfully!")
+                    
+                    if added_to_album:
+                        await update.message.reply_text(f"Photo added to albums!")
             else:
                 logger.error(f"Failed to upload photo {file_name} to Immich. Status code: {response.status_code}, Response: {response.text}")
                 await update.message.reply_text(f"❌ Failed to upload photo. Error: {response.text}")
@@ -386,6 +404,25 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
             logger.info(f"Cleaned up temporary photo file: {temp_file_path}")
+
+async def add_to_album(checksum, id):
+    json = {
+        'albumIds': IMMICH_ALBUMS,
+        'assetIds': [id]
+    }
+    headers = {
+        'x-api-key': IMMICH_API_KEY,
+        'x-immich-checksum': checksum
+    }
+
+    logger.info(f"Adding photo {id} to Immich Albums {IMMICH_ALBUMS}")
+    response = requests.put(
+    f"{IMMICH_API_URL}/albums/assets",
+        headers=headers,
+        json=json
+    )
+    response_data = response.json()
+    return response_data.get('success')
 
 def main():
     """Start the bot with command handlers."""

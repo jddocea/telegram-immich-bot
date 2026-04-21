@@ -50,6 +50,7 @@ services:
       - IMMICH_API_KEY=your_immich_api_key
       - ALLOWED_USER_IDS=user1_id,user2_id
       - TZ=Europe/Madrid
+      - IMMICH_ALBUM=UUID #Optional variable that automatically adds photo to albums specified
 ```
 ### Run with Docker run
 
