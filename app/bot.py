@@ -280,31 +280,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     'x-immich-checksum': checksum
                 }
 
-                logger.info(f"Uploading file {file_name} to Immich")
-                response = requests.post(
-                    f"{IMMICH_API_URL}/assets",
-                    headers=headers,
-                    files=files,
-                    data=data
-                )
-
-                if response.status_code in (200, 201):
-                    response_data = response.json()
-                    if response.status_code == 200 and response_data.get('status') == 'duplicate':
-                        logger.info(f"File {file_name} is a duplicate in Immich")
-                        await update.message.reply_text(f"ℹ️ File {file_name} already exists in Immich.")
-                    else:
-                        if len(IMMICH_ALBUMS) > 0:
-                            added_to_album = await add_to_album(checksum, response_data.get('id'))
-                        else:
-                            added_to_album = False
-                        logger.info(f"Successfully uploaded file {file_name} to Immich")
-                        await update.message.reply_text(f"✅ File {file_name} uploaded successfully!")
-                        if added_to_album:
-                            await update.message.reply_text(f"Photo added to albums!")
-                else:
-                    logger.error(f"Failed to upload file {file_name} to Immich. Status code: {response.status_code}, Response: {response.text}")
-                    await update.message.reply_text(f"❌ Failed to upload file. Error: {response.text}")
+                await upload_to_immich(headers, files, data, file_name, update)
 
         except UnidentifiedImageError:
             logger.error(f"Could not identify image file: {file_name}")
@@ -369,33 +345,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'x-api-key': IMMICH_API_KEY,
                 'x-immich-checksum': checksum
             }
-
-            logger.info(f"Uploading photo {file_name} to Immich")
-            response = requests.post(
-                f"{IMMICH_API_URL}/assets",
-                headers=headers,
-                files=files,
-                data=data
-            )
-
-            if response.status_code in (200, 201):
-                response_data = response.json()
-                if response.status_code == 200 and response_data.get('status') == 'duplicate':
-                    logger.info(f"Photo {file_name} is a duplicate in Immich")
-                    await update.message.reply_text(f"ℹ️ Photo already exists in Immich.")
-                else:
-                    if len(IMMICH_ALBUMS) > 0:
-                        added_to_album = await add_to_album(checksum, response_data.get('id'))
-                    else:
-                        added_to_album = False
-                    logger.info(f"Successfully uploaded photo {file_name} to Immich")
-                    await update.message.reply_text(f"✅ Photo uploaded successfully!")
-                    
-                    if added_to_album:
-                        await update.message.reply_text(f"Photo added to albums!")
-            else:
-                logger.error(f"Failed to upload photo {file_name} to Immich. Status code: {response.status_code}, Response: {response.text}")
-                await update.message.reply_text(f"❌ Failed to upload photo. Error: {response.text}")
+            
+            await upload_to_immich(headers, files, data, file_name, update)
 
     except Exception as e:
         logger.error(f"Error processing photo {file_name}: {str(e)}", exc_info=True)
@@ -405,14 +356,39 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(temp_file_path)
             logger.info(f"Cleaned up temporary photo file: {temp_file_path}")
 
-async def add_to_album(checksum, id):
+async def upload_to_immich(headers, files, data, file_name, update: Update):
+    logger.info(f"Uploading file {file_name} to Immich")
+    response = requests.post(
+        f"{IMMICH_API_URL}/assets",
+        headers=headers,
+        files=files,
+        data=data
+        )
+
+    if response.status_code in (200, 201):
+        response_data = response.json()
+        if response.status_code == 200 and response_data.get('status') == 'duplicate':
+            logger.info(f"Photo {file_name} is a duplicate in Immich")
+            await update.message.reply_text(f"ℹ️ Photo already exists in Immich.")
+        else:
+            if len(IMMICH_ALBUMS) > 0:
+                added_to_album = await add_to_album(headers, response_data.get('id'))
+            else:
+                added_to_album = False
+
+            logger.info(f"Successfully uploaded photo {file_name} to Immich")
+            await update.message.reply_text(f"✅ Photo uploaded successfully!")
+                    
+            if added_to_album:
+                await update.message.reply_text(f"Photo added to albums!")
+    else:
+        logger.error(f"Failed to upload photo {file_name} to Immich. Status code: {response.status_code}, Response: {response.text}")
+        await update.message.reply_text(f"❌ Failed to upload photo. Error: {response.text}")
+
+async def add_to_album(headers, id):
     json = {
         'albumIds': IMMICH_ALBUMS,
         'assetIds': [id]
-    }
-    headers = {
-        'x-api-key': IMMICH_API_KEY,
-        'x-immich-checksum': checksum
     }
 
     logger.info(f"Adding photo {id} to Immich Albums {IMMICH_ALBUMS}")
