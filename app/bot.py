@@ -2,15 +2,13 @@ import os
 import requests
 from datetime import datetime, timezone
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
+from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler, ConversationHandler
 from PIL import Image
 from PIL.ExifTags import TAGS
 import hashlib
 import logging
 import mimetypes
 import asyncio
-import threading
-import time
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -21,6 +19,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 BOT_NAME = "Telegram to Immich Bot"
 BOT_VERSION = "0.7"
+UUID = range(1)
 
 def validate_config():
     """Validate required environment variables."""
@@ -190,7 +189,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Available commands:\n"
         "/help - Show this help message\n"
         "/version - Show bot version\n"
-        "/files - Show supported file types\n\n"
+        "/files - Show supported file types\n"
+        "/delete - Delete photo from immich using UUID\n\n"
         "Send me files and I'll upload them to your Immich instance!"
     )
 
@@ -400,6 +400,46 @@ async def add_to_album(headers, id):
     response_data = response.json()
     return response_data.get('success')
 
+async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"Enter UUID of photo:")
+    return UUID
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancels and ends the conversation."""
+    await update.message.reply_text("Conversation cancelled.")
+    return ConversationHandler.END
+
+async def uuid_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uuid_to_delete = update.message.text
+    headers = {
+                    'x-api-key': IMMICH_API_KEY
+                }
+    json = {
+        'ids': [uuid_to_delete]
+    }
+    response = requests.delete(
+        f"{IMMICH_API_URL}/assets",
+        headers=headers,
+        json=json
+        )
+    
+    if response.status_code == 204:
+        await update.message.reply_text("✅ Photo deleted successfully")
+    else:
+        await update.message.reply_text("Photo does not exist, nothing deleted")
+    
+    final_message = ("Upload another photo or use another command\n\n"
+        "Available commands:\n"
+        "/help - Show this help message\n"
+        "/version - Show bot version\n"
+        "/files - Show supported file types\n"
+        "/delete - Delete photo from immich using UUID")
+    await update.message.reply_text(final_message)
+    return ConversationHandler.END
+
+async def invalid_uuid(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Not a valid UUID, please try again (or use /cancel to stop):")
+
 def main():
     """Start the bot with command handlers."""
     try:
@@ -413,10 +453,22 @@ def main():
 
         application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+        delete_handler = ConversationHandler(
+        entry_points=[CommandHandler("delete", delete)],
+        states={
+            UUID: [
+                MessageHandler(filters.Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"), uuid_delete),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, invalid_uuid)
+                   ]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        
+        )
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help_command))
         application.add_handler(CommandHandler("version", version))
         application.add_handler(CommandHandler("files", files))
+        application.add_handler(delete_handler)
         application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
         application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 

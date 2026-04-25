@@ -77,6 +77,7 @@ docker run -d \
 
 ## Immich API Key Permissions Needed
 - asset.upload
+- asset.delete
 - albumAsset.create
 - server.about
 - user.read
