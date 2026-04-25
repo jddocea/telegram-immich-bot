@@ -438,7 +438,7 @@ async def uuid_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def invalid_uuid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Not a valid UUID, please try again (or use /cancel to stop):")
+    await update.message.reply_text("Not a valid UUID, please enter valid UUID of photo to delete (or use /cancel to stop):")
 
 def main():
     """Start the bot with command handlers."""
