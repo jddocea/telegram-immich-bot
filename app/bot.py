@@ -9,6 +9,8 @@ import hashlib
 import logging
 import mimetypes
 import asyncio
+from urllib.parse import urlparse
+import uuid
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -190,7 +192,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/help - Show this help message\n"
         "/version - Show bot version\n"
         "/files - Show supported file types\n"
-        "/delete - Delete photo from immich using UUID\n\n"
+        "/delete - Delete photo from immich using URL\n\n"
         "Send me files and I'll upload them to your Immich instance!"
     )
 
@@ -401,7 +403,7 @@ async def add_to_album(headers, id):
     return response_data.get('success')
 
 async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"Enter UUID of photo:")
+    await update.message.reply_text(f"Enter URL of photo:")
     return UUID
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -410,7 +412,26 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def uuid_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uuid_to_delete = update.message.text
+    
+    parsed = urlparse(update.message.text)
+    uuid_to_delete = parsed.path.split('/')[-1]
+
+    try:
+        # Attempt to create a UUID object
+        uuid.UUID(str(uuid_to_delete))
+        await update.message.reply_text("✅ Link has valid UUID")
+    except ValueError:
+        # Raised if the string is not a valid hexadecimal UUID
+        await update.message.reply_text("❌ No valid UUID found in link, exiting now")
+        final_message = ("Upload another photo or use another command\n\n"
+        "Available commands:\n"
+        "/help - Show this help message\n"
+        "/version - Show bot version\n"
+        "/files - Show supported file types\n"
+        "/delete - Delete photo from immich using URL")
+        await update.message.reply_text(final_message)
+        return ConversationHandler.END
+    
     headers = {
                     'x-api-key': IMMICH_API_KEY
                 }
@@ -426,19 +447,19 @@ async def uuid_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if response.status_code == 204:
         await update.message.reply_text("✅ Photo deleted successfully")
     else:
-        await update.message.reply_text("Photo does not exist, nothing deleted")
+        await update.message.reply_text("❌ Photo does not exist, nothing deleted")
     
     final_message = ("Upload another photo or use another command\n\n"
         "Available commands:\n"
         "/help - Show this help message\n"
         "/version - Show bot version\n"
         "/files - Show supported file types\n"
-        "/delete - Delete photo from immich using UUID")
+        "/delete - Delete photo from immich using URL")
     await update.message.reply_text(final_message)
     return ConversationHandler.END
 
-async def invalid_uuid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Not a valid UUID, please enter valid UUID of photo to delete (or use /cancel to stop):")
+async def invalid_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Not a valid URL, please enter valid URL of photo to delete (or use /cancel to stop):")
 
 def main():
     """Start the bot with command handlers."""
@@ -457,8 +478,8 @@ def main():
         entry_points=[CommandHandler("delete", delete)],
         states={
             UUID: [
-                MessageHandler(filters.Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"), uuid_delete),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, invalid_uuid)
+                MessageHandler(filters.Entity("url"), uuid_delete),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, invalid_url)
                    ]
         },
         fallbacks=[CommandHandler("cancel", cancel)],
